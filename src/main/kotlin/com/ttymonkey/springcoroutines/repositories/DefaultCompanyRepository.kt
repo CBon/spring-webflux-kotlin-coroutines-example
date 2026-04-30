@@ -1,6 +1,6 @@
 package com.ttymonkey.springcoroutines.repositories
 
-import com.ttymonkey.springcoroutines.jooq.application.Tables.COMPANIES
+import com.ttymonkey.springcoroutines.jooq.application.tables.Companies.Companion.COMPANIES
 import com.ttymonkey.springcoroutines.models.Company
 import com.ttymonkey.springcoroutines.toCompany
 import kotlinx.coroutines.flow.Flow
@@ -60,7 +60,7 @@ class DefaultCompanyRepository(private val dslContext: DSLContext) : CompanyRepo
                 .values(company.name, company.address)
                 .returningResult(COMPANIES.ID)
                 .asFlow()
-                .map { findById(it.value1(), trx.dsl())!! }
+                .map { findById(it.value1()!!, trx.dsl())!! }
         }
     }
 
