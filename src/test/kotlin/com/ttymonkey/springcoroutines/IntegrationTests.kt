@@ -1,5 +1,6 @@
 package com.ttymonkey.springcoroutines
 
+import com.ttymonkey.springcoroutines.config.TestConfig
 import com.ttymonkey.springcoroutines.dto.CompanyRequest
 import com.ttymonkey.springcoroutines.dto.CompanyResponse
 import org.assertj.core.api.Assertions.assertThat
@@ -7,28 +8,40 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.client.TestRestTemplate
-import org.springframework.boot.test.web.client.getForObject
-import org.springframework.boot.test.web.client.postForObject
+import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.context.annotation.Import
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import org.testcontainers.containers.PostgreSQLContainer
+import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.test.web.reactive.server.expectBody
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import java.util.UUID
+import org.testcontainers.postgresql.PostgreSQLContainer
+import java.util.*
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    classes = [Application::class]
 )
+@Import(TestConfig::class)
 @Testcontainers
-class IntegrationTests(
-    @Autowired val client: TestRestTemplate,
-    @Autowired val databaseClient: DatabaseClient,
-) {
+class IntegrationTests {
+
+    @LocalServerPort
+    private var port: Int = 0
+
+    private val webTestClient: WebTestClient by lazy {
+        WebTestClient.bindToServer()
+            .baseUrl("http://localhost:$port")
+            .build()
+    }
+    @field:Autowired
+    lateinit var databaseClient: DatabaseClient
+
     companion object {
         @Container
-        val container = PostgreSQLContainer("postgres:15.3-alpine")
+        val container: PostgreSQLContainer? = PostgreSQLContainer("postgres:16.3")
             .withDatabaseName("monkey")
             .withUsername("postgres")
             .withPassword("password")
@@ -37,14 +50,15 @@ class IntegrationTests(
         @DynamicPropertySource
         fun datasourceConfig(registry: DynamicPropertyRegistry) {
             registry.add("spring.r2dbc.url") {
-                "r2dbc:postgresql://${container.host}:${container.getMappedPort(5432)}/${container.databaseName}"
+                "r2dbc:postgresql://${container?.host}:${container?.getMappedPort(5432)}/${container?.databaseName}?schema=application"
             }
-            registry.add("spring.r2dbc.username", container::getUsername)
+            registry.add("spring.r2dbc.username", container!!::getUsername)
             registry.add("spring.r2dbc.password", container::getPassword)
 
             registry.add("spring.flyway.url") {
-                "jdbc:postgresql://${container.host}:${container.getMappedPort(5432)}/${container.databaseName}"
+                "jdbc:postgresql://${container.host}:${container.getMappedPort(5432)}/${container.databaseName}?schema=application"
             }
+            registry.add("spring.flyway.schemas") { "application" }
             registry.add("spring.flyway.username", container::getUsername)
             registry.add("spring.flyway.password", container::getPassword)
         }
@@ -52,7 +66,7 @@ class IntegrationTests(
 
     @AfterEach
     fun cleanup() {
-        databaseClient.sql("TRUNCATE TABLE companies;")
+        databaseClient.sql("TRUNCATE TABLE application.users, application.companies RESTART IDENTITY CASCADE;")
             .then()
             .subscribe()
     }
@@ -66,13 +80,28 @@ class IntegrationTests(
         val companyRequest = CompanyRequest(name, address)
 
         // when
-        val id = client.postForObject<CompanyResponse>("/api/companies", companyRequest)!!.id
+        val createdResponse = webTestClient.post()
+            .uri("/api/companies")
+            .bodyValue(companyRequest)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody<CompanyResponse>()
+            .returnResult()
+            .responseBody
 
         // then
-        val companyResponse = client.getForObject<CompanyResponse>("/api/companies/$id")!!
+        val id = createdResponse?.id
+        val companyResponse = webTestClient.get()
+            .uri("/api/companies/$id")
+            .exchange()
+            .expectStatus().isOk
+            .expectBody<CompanyResponse>()
+            .returnResult()
+            .responseBody
 
-        assertThat(companyResponse.id).isEqualTo(id)
-        assertThat(companyResponse.name).isEqualTo(name)
-        assertThat(companyResponse.address).isEqualTo(address)
+        assertThat(companyResponse).isNotNull
+        assertThat(companyResponse?.id).isEqualTo(id)
+        assertThat(companyResponse?.name).isEqualTo(name)
+        assertThat(companyResponse?.address).isEqualTo(address)
     }
 }

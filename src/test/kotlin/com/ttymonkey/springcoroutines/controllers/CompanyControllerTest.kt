@@ -1,24 +1,32 @@
 package com.ttymonkey.springcoroutines.controllers
 
 import com.ninjasquad.springmockk.MockkBean
+import com.ttymonkey.springcoroutines.Application
 import com.ttymonkey.springcoroutines.config.TestConfig
 import com.ttymonkey.springcoroutines.models.Company
 import com.ttymonkey.springcoroutines.services.CompanyService
 import com.ttymonkey.springcoroutines.services.UserService
 import io.mockk.coEvery
 import io.mockk.coVerify
-import kotlinx.coroutines.flow.flow
+import io.mockk.slot
+import kotlinx.coroutines.flow.flowOf
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest
-import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.test.web.reactive.server.WebTestClient
 import java.util.UUID
 import kotlin.random.Random
 
-@WebFluxTest
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    classes = [Application::class]
+)
 @Import(TestConfig::class)
-class CompanyControllerTest(@Autowired val webClient: WebTestClient) {
+class CompanyControllerTest {
+    @Autowired
+    private lateinit var webClient: WebTestClient
+
     @MockkBean
     private lateinit var companyService: CompanyService
 
@@ -31,9 +39,10 @@ class CompanyControllerTest(@Autowired val webClient: WebTestClient) {
         val id = Random.nextInt()
         val name = UUID.randomUUID().toString()
         val address = UUID.randomUUID().toString()
+        val companyIdSlot = slot<Int>()
 
         coEvery { companyService.findCompanyById(id) } returns Company(id, name, address)
-        coEvery { userService.findUsersByCompanyId(id) } returns flow {}
+        coEvery { userService.findUsersByCompanyId(capture(companyIdSlot)) } returns flowOf()
 
         // when/then
         webClient.get()
@@ -47,6 +56,6 @@ class CompanyControllerTest(@Autowired val webClient: WebTestClient) {
             .jsonPath("$.users").isEmpty
 
         coVerify(exactly = 1) { companyService.findCompanyById(id) }
-        coVerify(exactly = 1) { userService.findUsersByCompanyId(id) }
+        assert(companyIdSlot.captured == id)
     }
 }

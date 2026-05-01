@@ -1,5 +1,4 @@
 import org.jooq.meta.jaxb.Property
-import kotlin.apply
 
 plugins {
     java
@@ -26,12 +25,17 @@ repositories {
 }
 
 dependencies {
+
+    // Source: https://mvnrepository.com/artifact/org.testcontainers/testcontainers-bom
+    implementation(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
+    // Source: https://mvnrepository.com/artifact/io.projectreactor/reactor-bom
+    implementation(platform("io.projectreactor:reactor-bom:2025.0.5"))
+
     // webflux
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     // kotlin and coroutines support
-    // Source: https://mvnrepository.com/artifact/io.projectreactor/reactor-bom
-    implementation(platform("io.projectreactor:reactor-bom:2025.0.5"))
+
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("io.projectreactor.netty:reactor-netty-core")
@@ -65,8 +69,6 @@ dependencies {
     testImplementation("com.ninja-squad:springmockk:$springmockkVersion")
 
     // testcontainers
-    // Source: https://mvnrepository.com/artifact/org.testcontainers/testcontainers-bom
-    implementation(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
     testImplementation("org.testcontainers:testcontainers")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
@@ -97,8 +99,9 @@ flyway {
     url = "jdbc:postgresql://localhost:5432/monkey"  // Замените на вашу БД
     user = "postgres"
     password = "password"
-    schemas = arrayOf("public")
-    locations = arrayOf("filesystem:src/main/resources/db/migration")
+    defaultSchema = "application"
+    schemas = arrayOf("application")
+    locations = arrayOf("classpath:db/migration")
 }
 
 // Настройка зависимостей между задачами
@@ -139,6 +142,24 @@ jooq {
                     Property().apply {
                         key = "defaultNameCase"
                         value = "lower"
+                    },
+                    Property().apply {
+                        key = "inputSchema"
+                        value = "application"
+                    },
+                    Property().apply {
+                        key = "outputSchema"
+                        value = "application"
+                    },
+                    // КРИТИЧЕСКИ ВАЖНО: Отключаем кавычки при генерации
+                    Property().apply {
+                        key = "renderQuotedNames"
+                        value = "NEVER"
+                    },
+                    // Заменяем кавычки на точки
+                    Property().apply {
+                        key = "renderNameStyle"
+                        value = "AS_IS"
                     }
                 )
             }
@@ -147,6 +168,9 @@ jooq {
 //                jooqVersionReference =
                 isPojosAsKotlinDataClasses = true
                 isKotlinNotNullPojoAttributes = true
+                // Добавляем настройки генерации
+                isDeprecated = false
+                isGeneratedAnnotation = false
             }
 
             target {
