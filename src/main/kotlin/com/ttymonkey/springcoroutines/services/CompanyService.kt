@@ -34,15 +34,17 @@ class CompanyService(
     fun findAllCompaniesByNameLike(name: String): Flow<Company> =
         companyRepository.findByNameContaining(name)
 
-    suspend fun updateCompany(id: Int, requestedCompany: Company): Company {
-        val foundCompany = companyRepository.findById(id)
+    suspend fun updateCompany(requestedCompany: Company): Company {
 
-        return if (foundCompany == null) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Company with id $id was not found.")
-        } else {
-            val companyForUpdate = Company(id, requestedCompany.name, requestedCompany.address)
-            companyRepository.update(companyForUpdate)
-            companyForUpdate
-        }
+        val id = requireNotNull(requestedCompany.id) { "Company id must not be null." }
+
+        companyRepository.findById(id)
+            ?: throw ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Company with id ${id} was not found."
+            )
+
+        companyRepository.update(requestedCompany)
+        return requestedCompany
     }
 }

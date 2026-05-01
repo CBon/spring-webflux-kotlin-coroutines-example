@@ -56,7 +56,6 @@ class UserController(
         @RequestBody userRequest: UserRequest,
     ): UserResponse =
         userService.updateUser(
-            id = id,
-            requestedUser = userRequest.toModel(),
+             userRequest.toModel().copy(id = id)
         ).toResponse()
 }

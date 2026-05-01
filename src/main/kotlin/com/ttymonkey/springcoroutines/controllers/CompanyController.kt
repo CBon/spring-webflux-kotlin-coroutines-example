@@ -98,8 +98,7 @@ class CompanyController(
         @RequestBody companyRequest: CompanyRequest,
     ): CompanyResponse =
         companyService.updateCompany(
-            id = id,
-            requestedCompany = companyRequest.toModel(),
+             companyRequest.toModel().copy(id = id)
         )
             .let { company ->
                 company.toResponse(

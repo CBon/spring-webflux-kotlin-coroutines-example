@@ -15,7 +15,7 @@ class UserService(
     suspend fun saveUser(user: User): User? =
         userRepository.findByEmail(user.email)
             .firstOrNull()
-            ?.let { throw ResponseStatusException(HttpStatus.BAD_REQUEST, "The spcified emnail is already in use.") }
+            ?.let { throw ResponseStatusException(HttpStatus.BAD_REQUEST, "The specified email is already in use.") }
             ?: userRepository.save(user)
 
     fun findAllUsers(): Flow<User> =
@@ -34,14 +34,17 @@ class UserService(
         }
     }
 
-    suspend fun updateUser(id: Int, requestedUser: User): User {
-        val foundUser = userRepository.findById(id)
+    suspend fun updateUser(requestedUser: User): User {
 
-        return if (foundUser == null) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "User with id $id was not found.")
-        } else {
-            userRepository.save(requestedUser.copy(id = foundUser.id))
-        }
+        val id = requireNotNull(requestedUser.id) { "User id must not be null." }
+
+        userRepository.findById(id) ?: throw ResponseStatusException(
+            HttpStatus.NOT_FOUND,
+            "User with id $id was not found."
+        )
+
+        userRepository.save(requestedUser)
+        return requestedUser
     }
 
     fun findAllUsersByNameLike(name: String): Flow<User> =
