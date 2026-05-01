@@ -40,9 +40,9 @@ class CompanyService(
         return if (foundCompany == null) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Company with id $id was not found.")
         } else {
-            companyRepository.save(
-                requestedCompany.copy(id = foundCompany.id),
-            )!!
+            val companyForUpdate = Company(id, requestedCompany.name, requestedCompany.address)
+            companyRepository.update(companyForUpdate)
+            companyForUpdate
         }
     }
 }

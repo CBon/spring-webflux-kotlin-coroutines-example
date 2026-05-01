@@ -64,6 +64,16 @@ class DefaultCompanyRepository(private val dslContext: DSLContext) : CompanyRepo
         }
     }
 
+    override suspend fun update(company: Company): Int {
+        val sql = dslContext.update(COMPANIES)
+            .set(COMPANIES.NAME, company.name)
+            .set(COMPANIES.ADDRESS, company.address)
+            .where(COMPANIES.ID.eq(company.id))
+
+        return Mono.from(sql)
+            .awaitSingle()
+    }
+
     private suspend fun findById(
         id: Int,
         dslContext: DSLContext,

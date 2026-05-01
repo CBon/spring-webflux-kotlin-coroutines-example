@@ -9,4 +9,5 @@ interface CompanyRepository {
     suspend fun findById(id: Int): Company?
     suspend fun deleteById(id: Int): Int
     suspend fun save(company: Company): Company?
+    suspend fun update(company: Company): Int
 }
